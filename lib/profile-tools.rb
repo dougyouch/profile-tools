@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
-ObjectSpace.count_objects
-
 class ProfileTools
   autoload :LogSubscriber, 'profile_tools/log_subscriber'
+
+  def initialize
+    ObjectSpace.count_objects
+  end
 
   def profile_instance_method(class_name, method_name)
     profile_method(Object.const_get(class_name), class_name, method_name)
