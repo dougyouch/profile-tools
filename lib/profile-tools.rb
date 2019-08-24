@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+ObjectSpace.count_objects
+
 class ProfileTools
   autoload :LogSubscriber, 'profile_tools/log_subscriber'
 
@@ -32,6 +34,17 @@ class ProfileTools
     profile_tools
   end
 
+  def self.count_objects_changes(starting_objects, new_objects)
+    changes = {}
+    new_objects.each do |name, cnt|
+      old_cnt = starting_objects[name]
+      old_cnt += 1 if name == :T_HASH
+      diff = cnt - old_cnt
+      changes[name] = diff if diff != 0
+    end
+    changes
+  end
+
   private
 
   def profile_method(kls, class_name, method_name)
@@ -42,7 +55,10 @@ class ProfileTools
 <<-STR, __FILE__, __LINE__ + 1
 def #{method_name_with_profiling}(*args)
   ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}') do |payload|
-    #{method_name_without_profiling}(*args)
+    starting_objects = ObjectSpace.count_objects
+    result = #{method_name_without_profiling}(*args)
+    payload[:count_objects] = ::ProfileTools.count_objects_changes(starting_objects, ObjectSpace.count_objects)
+    result
   end
 end
 STR
