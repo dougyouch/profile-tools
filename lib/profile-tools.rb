@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class ProfileTools
+  autoload :AggregateLogSubscriber, 'profile_tools/aggregate_log_subscriber'
+  autoload :Collector, 'profile_tools/collector'
   autoload :LogSubscriber, 'profile_tools/log_subscriber'
 
   def initialize
@@ -53,6 +55,23 @@ class ProfileTools
     ::ProfileTools.count_objects_changes(starting_objects, ObjectSpace.count_objects)
   end
 
+  def self.increment_call_depth
+    Thread.current[:profile_tools_call_depth] ||= 0
+    Thread.current[:profile_tools_call_depth] += 1
+  end
+
+  def self.decrement_call_depth
+    Thread.current[:profile_tools_call_depth] -= 1
+  end
+
+  def self.collector
+    Thread.current[:profile_tools_collector] ||= Collector.new
+  end
+
+  def self.reset_collector
+    Thread.current[:profile_tools_collector] = nil
+  end
+
   private
 
   def profile_method(kls, class_name, method_name, display_name)
@@ -64,9 +83,12 @@ class ProfileTools
 def #{method_name_with_profiling}(*args)
   ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}', display_name: '#{display_name}') do |payload|
     result = nil
+    ::ProfileTools.increment_call_depth
     payload[:count_objects] = ::ProfileTools.count_objects_around do
       result = #{method_name_without_profiling}(*args)
     end
+    payload[:call_depth] = ::ProfileTools.decrement_call_depth
+    payload[:collector] = ::ProfileTools.collector
     result
   end
 end

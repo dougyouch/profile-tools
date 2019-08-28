@@ -11,6 +11,6 @@ require 'profile-tools'
 require 'irb'
 
 ActiveSupport::LogSubscriber.logger = Logger.new($stdout)
-ProfileTools::LogSubscriber.attach_to :profile_tools
+ProfileTools::AggregateLogSubscriber.attach_to :profile_tools
 
 IRB.start(__FILE__)
