@@ -55,6 +55,18 @@ class ProfileTools
     ::ProfileTools.count_objects_changes(starting_objects, ObjectSpace.count_objects)
   end
 
+  def self.instrument
+    ::ProfileTools.increment_call_depth
+    ActiveSupport::Notifications.instrument('method.profile_tools', class_name: name, method: 'instrument', display_name: '#{name}.instrument', collector: ::ProfileTools.collector) do |payload|
+      result = nil
+      payload[:count_objects] = ::ProfileTools.count_objects_around do
+        result = yield
+      end
+      payload[:call_depth] = ::ProfileTools.decrement_call_depth
+      result
+    end
+  end
+
   def self.increment_call_depth
     Thread.current[:profile_tools_call_depth] ||= 0
     Thread.current[:profile_tools_call_depth] += 1
