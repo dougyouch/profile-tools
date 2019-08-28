@@ -26,12 +26,18 @@ class Foo
   def bar3
     puts "HERE #{1}"
   end
+
+  def bar4
+    bar2
+    5.times { bar3 }
+  end
 end
 
 ProfileTools.new.tap do |t|
   t.profile_instance_method(:Foo, :bar)
   t.profile_instance_method(:Foo, :bar2)
   t.profile_instance_method(:Foo, :bar3)
+  t.profile_instance_method(:Foo, :bar4)
 end
 
 IRB.start(__FILE__)
