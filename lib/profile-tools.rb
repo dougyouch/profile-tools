@@ -81,14 +81,13 @@ class ProfileTools
     kls.class_eval(
 <<-STR, __FILE__, __LINE__ + 1
 def #{method_name_with_profiling}(*args)
-  ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}', display_name: '#{display_name}') do |payload|
+  ::ProfileTools.increment_call_depth
+  ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}', display_name: '#{display_name}', collector: ::ProfileTools.collector) do |payload|
     result = nil
-    ::ProfileTools.increment_call_depth
     payload[:count_objects] = ::ProfileTools.count_objects_around do
       result = #{method_name_without_profiling}(*args)
     end
     payload[:call_depth] = ::ProfileTools.decrement_call_depth
-    payload[:collector] = ::ProfileTools.collector
     result
   end
 end
