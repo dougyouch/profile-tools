@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+$LOAD_PATH << File.expand_path('../lib', __dir__)
+
+require 'active_support/notifications'
+require 'active_support/log_subscriber'
+require 'logger'
+require 'concurrent'
+require 'profile-tools'
+require 'irb'
+
+ActiveSupport::LogSubscriber.logger = Logger.new($stdout)
+ProfileTools::AggregateLogSubscriber.attach_to :profile_tools
+
+class Foo
+  def bar
+    bar2
+  end
+
+  def bar2
+    puts "HERE #{1} too"
+    bar3
+  end
+
+  def bar3
+    puts "HERE #{1}"
+  end
+end
+
+ProfileTools.new.tap do |t|
+  t.profile_instance_method(:Foo, :bar)
+  t.profile_instance_method(:Foo, :bar2)
+  t.profile_instance_method(:Foo, :bar3)
+end
+
+IRB.start(__FILE__)
