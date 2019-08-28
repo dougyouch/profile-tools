@@ -57,12 +57,15 @@ class ProfileTools
 
   def self.instrument
     ::ProfileTools.increment_call_depth
-    ActiveSupport::Notifications.instrument('method.profile_tools', class_name: name, method: 'instrument', display_name: '#{name}.instrument', collector: ::ProfileTools.collector) do |payload|
+    collector = ::ProfileTools.collector
+    current_collection_calls = collector.total_collection_calls
+    ActiveSupport::Notifications.instrument('method.profile_tools', class_name: name, method: 'instrument', display_name: '#{name}.instrument', collector: collector) do |payload|
       result = nil
       payload[:count_objects] = ::ProfileTools.count_objects_around do
         result = yield
       end
       payload[:call_depth] = ::ProfileTools.decrement_call_depth
+      payload[:num_collection_calls] = collector.total_collection_calls - current_collection_calls
       result
     end
   end
@@ -94,12 +97,15 @@ class ProfileTools
 <<-STR, __FILE__, __LINE__ + 1
 def #{method_name_with_profiling}(*args)
   ::ProfileTools.increment_call_depth
-  ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}', display_name: '#{display_name}', collector: ::ProfileTools.collector) do |payload|
+  collector = ::ProfileTools.collector
+  current_collection_calls = collector.total_collection_calls
+  ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}', display_name: '#{display_name}', collector: collector) do |payload|
     result = nil
     payload[:count_objects] = ::ProfileTools.count_objects_around do
       result = #{method_name_without_profiling}(*args)
     end
     payload[:call_depth] = ::ProfileTools.decrement_call_depth
+    payload[:num_collection_calls] = collector.total_collection_calls - current_collection_calls
     result
   end
 end

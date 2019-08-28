@@ -2,34 +2,37 @@
 
 class ProfileTools
   class Collector
-    attr_reader :methods
+    attr_reader :methods,
+                :total_collection_calls
 
     def initialize
       @methods = {}
       @total_collection_calls = 0
     end
 
-    def add(method, duration, count_object_changes)
+    def add(method, duration, count_object_changes, num_collection_calls)
+      @total_collection_calls += 1
+
       @methods[method] ||= {
         method: method,
         duration: 0.0,
         calls: 0,
         count_objects: Hash.new(0),
-        num_collection_calls: @total_collection_calls
+        num_collection_calls: num_collection_calls
       }
+
       @methods[method][:calls] += 1
       @methods[method][:duration] += duration
-      add_object_changes(@methods[method][:count_objects], count_object_changes, @total_collection_calls)
-      @total_collection_calls += 1
+      add_object_changes(@methods[method][:count_objects], count_object_changes)
+      adjust_object_counts(@methods[method][:count_objects], num_collection_calls) if num_collection_calls > 0
     end
 
     private
 
-    def add_object_changes(current_objects, new_objects, num_collection_calls)
+    def add_object_changes(current_objects, new_objects)
       new_objects.each do |name, cnt|
         current_objects[name] += cnt
       end
-      adjust_object_counts(current_objects, num_collection_calls) if num_collection_calls > 0
       current_objects
     end
 
