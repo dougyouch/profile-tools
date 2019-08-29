@@ -14,7 +14,8 @@ class ProfileTools
       if event.payload[:call_depth] == 0
         ::ProfileTools.reset_collector
         event.payload[:collector].methods.each do |display_name, info|
-          logger.info "method #{display_name} took #{info[:duration].round(5)}ms, called #{info[:calls]}, objects: #{display_object_counts(info[:count_objects])}"
+          next unless info[:calls] > 0
+          logger.info "method #{display_name} took #{info[:duration].round(5)}ms, called #{info[:calls]}, num_collection_calls: #{info[:num_collection_calls]}, objects: #{display_object_counts(info[:count_objects])}"
         end
       end
     end

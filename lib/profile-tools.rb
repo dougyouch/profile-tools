@@ -5,6 +5,15 @@ class ProfileTools
   autoload :Collector, 'profile_tools/collector'
   autoload :LogSubscriber, 'profile_tools/log_subscriber'
 
+  @@profiled_methods = []
+  def self.profiled_methods
+    @@profiled_methods
+  end
+
+  def self.add_method(display_name)
+    profiled_methods << display_name
+  end
+
   def initialize
     ObjectSpace.count_objects
   end
@@ -59,7 +68,7 @@ class ProfileTools
     ::ProfileTools.increment_call_depth
     collector = ::ProfileTools.collector
     current_collection_calls = collector.total_collection_calls
-    ActiveSupport::Notifications.instrument('method.profile_tools', class_name: name, method: 'instrument', display_name: '#{name}.instrument', collector: collector) do |payload|
+    ActiveSupport::Notifications.instrument('method.profile_tools', class_name: name, method: 'instrument', display_name: "#{name}.instrument", collector: collector) do |payload|
       result = nil
       payload[:count_objects] = ::ProfileTools.count_objects_around do
         result = yield
@@ -80,7 +89,9 @@ class ProfileTools
   end
 
   def self.collector
-    Thread.current[:profile_tools_collector] ||= Collector.new
+    Thread.current[:profile_tools_collector] ||= Collector.new.tap do |collector|
+      profiled_methods.each { |display_name| collector.init_method(display_name) }
+    end
   end
 
   def self.reset_collector
@@ -90,6 +101,8 @@ class ProfileTools
   private
 
   def profile_method(kls, class_name, method_name, display_name)
+    self.class.add_method(display_name)
+
     method_name_without_profiling = generate_method_name(method_name.to_s, 'without_profiling')
     method_name_with_profiling = generate_method_name(method_name.to_s, 'with_profiling')
 

@@ -31,6 +31,14 @@ class Foo
     bar2
     5.times { bar3 }
   end
+
+  def bar5
+    5.times { 1 }
+  end
+
+  def bar6
+    bar4
+  end
 end
 
 ProfileTools.new.tap do |t|
@@ -38,6 +46,8 @@ ProfileTools.new.tap do |t|
   t.profile_instance_method(:Foo, :bar2)
   t.profile_instance_method(:Foo, :bar3)
   t.profile_instance_method(:Foo, :bar4)
+  t.profile_instance_method(:Foo, :bar5)
+  t.profile_instance_method(:Foo, :bar6)
 end
 
 IRB.start(__FILE__)
