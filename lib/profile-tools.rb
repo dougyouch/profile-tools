@@ -53,7 +53,7 @@ class ProfileTools
     if increment_call_depth == 1
       reset_collector
       collector.init_method(display_name)
-      ActiveSupport::Notifications.instrument(EVENT, collector: collector) do |payload|
+      ActiveSupport::Notifications.instrument(EVENT, collector: collector) do
         collector.instrument(display_name) do
           result = yield
         end
