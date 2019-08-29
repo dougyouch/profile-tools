@@ -48,6 +48,25 @@ class ProfileTools
     profile_tools
   end
 
+  def self.instrument
+    result = nil
+    if increment_call_depth == 1
+      reset_collector
+      collector.init_method('ProfileTools.instrument')
+      ActiveSupport::Notifications.instrument(EVENT, collector: collector) do |payload|
+        collector.instrument('ProfileTools.instrument') do
+          result = yield
+        end
+      end
+    else
+      collector.instrument('ProfileTools.instrument') do
+        result = yield
+      end
+    end
+    decrement_call_depth
+    result
+  end
+
   def self.count_objects_changes(starting_objects, new_objects)
     new_objects.each do |name, cnt|
       new_objects[name] -= starting_objects[name]
