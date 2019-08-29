@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require 'concurrent'
 
 class ProfileTools
   # Collects stats around method calls
