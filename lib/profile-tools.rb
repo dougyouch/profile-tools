@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 class ProfileTools
-  autoload :AggregateLogSubscriber, 'profile_tools/aggregate_log_subscriber'
   autoload :Collector, 'profile_tools/collector'
   autoload :LogSubscriber, 'profile_tools/log_subscriber'
 
