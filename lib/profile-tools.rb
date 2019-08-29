@@ -48,14 +48,10 @@ class ProfileTools
   end
 
   def self.count_objects_changes(starting_objects, new_objects)
-    changes = {}
     new_objects.each do |name, cnt|
-      old_cnt = starting_objects[name]
-      old_cnt += 1 if name == :T_HASH
-      diff = cnt - old_cnt
-      changes[name] = diff if diff != 0
+      new_objects[name] -= starting_objects[name]
+      new_objects[name] -= 1 if name == :T_HASH
     end
-    changes
   end
 
   def self.count_objects_around
@@ -67,6 +63,7 @@ class ProfileTools
   def self.instrument
     ::ProfileTools.increment_call_depth
     collector = ::ProfileTools.collector
+    collector.init_method("#{name}.instrument")
     current_collection_calls = collector.total_collection_calls
     ActiveSupport::Notifications.instrument('method.profile_tools', class_name: name, method: 'instrument', display_name: "#{name}.instrument", collector: collector) do |payload|
       result = nil

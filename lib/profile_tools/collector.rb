@@ -43,7 +43,7 @@ class ProfileTools
       object_counts[:T_OBJECT] -= (1 * num_collection_calls)
       object_counts[:T_STRING] -= (6 * num_collection_calls)
       object_counts[:T_ARRAY] -= (3 * num_collection_calls)
-      object_counts[:T_HASH] -= (6 * num_collection_calls)
+      object_counts[:T_HASH] -= (5 * num_collection_calls)
     end
   end
 end
