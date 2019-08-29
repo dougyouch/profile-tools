@@ -61,7 +61,7 @@ class ProfileTools
   end
 
   def self.instrument
-    ::ProfileTools.increment_call_depth
+    ::ProfileTools.reset_collector if ::ProfileTools.increment_call_depth == 1
     collector = ::ProfileTools.collector
     collector.init_method("#{name}.instrument")
     current_collection_calls = collector.total_collection_calls
@@ -106,7 +106,7 @@ class ProfileTools
     kls.class_eval(
 <<-STR, __FILE__, __LINE__ + 1
 def #{method_name_with_profiling}(*args)
-  ::ProfileTools.increment_call_depth
+  ::ProfileTools.reset_collector if ::ProfileTools.increment_call_depth == 1
   collector = ::ProfileTools.collector
   current_collection_calls = collector.total_collection_calls
   ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}', display_name: '#{display_name}', collector: collector) do |payload|
