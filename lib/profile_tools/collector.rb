@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class ProfileTools
+  # Collects stats around method calls
   class Collector
     attr_reader :methods,
                 :total_collection_calls
@@ -21,34 +22,25 @@ class ProfileTools
       }
     end
 
-    def add(method, duration, count_object_changes, num_collection_calls)
-      @total_collection_calls += 1
-      @methods[method][:calls] += 1
-      @methods[method][:sort_order] ||= @total_collection_calls
-      @methods[method][:duration] += duration
-      @methods[method][:num_collection_calls] = num_collection_calls
-      add_object_changes(@methods[method][:count_objects], count_object_changes)
-      adjust_count_objects(@methods[method][:count_objects], num_collection_calls) if num_collection_calls > 0
-    end
-
     def called_methods
       @methods
         .values
-        .select { |info| info[:calls] > 0 }
+        .reject { |info| info[:calls].zero? }
         .sort { |a, b| b[:sort_order] <=> a[:sort_order] }
     end
 
     def instrument(method)
       current_collection_calls = @total_collection_calls
-      started_at = now
       result = nil
+      duration = nil
       count_objects = ::ProfileTools.count_objects_around do
+        started_at = now
         result = yield
+        duration = now - started_at
       end
-      finished_at = now
       add(
         method,
-        (finished_at - started_at) * 1000.0,
+        duration * 1000.0,
         count_objects,
         @total_collection_calls - current_collection_calls
       )
@@ -56,6 +48,16 @@ class ProfileTools
     end
 
     private
+
+    def add(method, duration, count_object_changes, num_collection_calls)
+      @total_collection_calls += 1
+      @methods[method][:calls] += 1
+      @methods[method][:sort_order] ||= @total_collection_calls
+      @methods[method][:duration] += duration
+      @methods[method][:num_collection_calls] = num_collection_calls
+      add_object_changes(@methods[method][:count_objects], count_object_changes)
+      adjust_count_objects(@methods[method][:count_objects], num_collection_calls)
+    end
 
     def add_object_changes(current_objects, new_objects)
       new_objects.each do |name, cnt|
@@ -65,6 +67,8 @@ class ProfileTools
     end
 
     def adjust_count_objects(count_objects, num_collection_calls)
+      return if num_collection_calls.zero?
+
       count_objects[:T_STRING] -= (1 * num_collection_calls)
       count_objects[:T_ARRAY] -= (1 * num_collection_calls)
       count_objects[:T_HASH] -= (2 * num_collection_calls)

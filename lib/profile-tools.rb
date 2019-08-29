@@ -68,7 +68,7 @@ class ProfileTools
   end
 
   def self.count_objects_changes(starting_objects, new_objects)
-    new_objects.each do |name, cnt|
+    new_objects.each do |name, _|
       new_objects[name] -= starting_objects[name]
       new_objects[name] -= 1 if name == :T_HASH
     end
@@ -125,8 +125,6 @@ STR
     punctuation =
       if method_name =~ /(\?|!)$/
         $1
-      else
-        nil
       end
 
     method_name = method_name.sub(punctuation, '') if punctuation
