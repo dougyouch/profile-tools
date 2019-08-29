@@ -48,18 +48,18 @@ class ProfileTools
     profile_tools
   end
 
-  def self.instrument
+  def self.instrument(display_name = 'ProfileTools.instrument')
     result = nil
     if increment_call_depth == 1
       reset_collector
-      collector.init_method('ProfileTools.instrument')
+      collector.init_method(display_name)
       ActiveSupport::Notifications.instrument(EVENT, collector: collector) do |payload|
-        collector.instrument('ProfileTools.instrument') do
+        collector.instrument(display_name) do
           result = yield
         end
       end
     else
-      collector.instrument('ProfileTools.instrument') do
+      collector.instrument(display_name) do
         result = yield
       end
     end
@@ -110,22 +110,9 @@ class ProfileTools
     kls.class_eval(
 <<-STR, __FILE__, __LINE__ + 1
 def #{method_name_with_profiling}(*args)
-  result = nil
-  if ::ProfileTools.increment_call_depth == 1
-    ::ProfileTools.reset_collector 
-    collector = ::ProfileTools.collector
-    ActiveSupport::Notifications.instrument(::ProfileTools::EVENT, collector: collector) do |payload|
-      collector.instrument('#{display_name}') do
-        result = #{method_name_without_profiling}(*args)
-      end
-    end
-  else
-    ::ProfileTools.collector.instrument('#{display_name}') do
-      result = #{method_name_without_profiling}(*args)
-    end
+  ::ProfileTools.instrument('#{display_name}') do
+    #{method_name_without_profiling}(*args)
   end
-  ::ProfileTools.decrement_call_depth
-  result
 end
 STR
     )
