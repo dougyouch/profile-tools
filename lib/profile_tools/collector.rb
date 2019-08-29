@@ -33,7 +33,7 @@ class ProfileTools
       current_collection_calls = @total_collection_calls
       result = nil
       duration = nil
-      count_objects = ::ProfileTools.count_objects_around do
+      count_objects = count_objects_around do
         started_at = now
         result = yield
         duration = now - started_at
@@ -76,6 +76,19 @@ class ProfileTools
 
     def now
       Concurrent.monotonic_time
+    end
+
+    def count_objects_changes(starting_objects, new_objects)
+      new_objects.each do |name, _|
+        new_objects[name] -= starting_objects[name]
+        new_objects[name] -= 1 if name == :T_HASH
+      end
+    end
+
+    def count_objects_around
+      starting_objects = ObjectSpace.count_objects
+      yield
+      count_objects_changes(starting_objects, ObjectSpace.count_objects)
     end
   end
 end

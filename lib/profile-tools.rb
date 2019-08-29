@@ -1,14 +1,17 @@
 # frozen_string_literal: true
 
+# ProfileTools is used to instrument specific methods.  Provides feedback about method execution
+#  time and number of objects created.
 class ProfileTools
   autoload :Collector, 'profile_tools/collector'
   autoload :LogSubscriber, 'profile_tools/log_subscriber'
+  autoload :Profiler, 'profile_tools/profiler'
 
   EVENT = 'profile.profile_tools'
-  
-  @@profiled_methods = []
-  def self.profiled_methods
-    @@profiled_methods
+
+  @profiled_methods = []
+  class << self
+    attr_reader :profiled_methods
   end
 
   def self.add_method(display_name)
@@ -48,55 +51,14 @@ class ProfileTools
     profile_tools
   end
 
-  def self.instrument(display_name = 'ProfileTools.instrument')
-    result = nil
-    if increment_call_depth == 1
-      reset_collector
-      collector.init_method(display_name)
-      ActiveSupport::Notifications.instrument(EVENT, collector: collector) do
-        collector.instrument(display_name) do
-          result = yield
-        end
-      end
-    else
-      collector.instrument(display_name) do
-        result = yield
-      end
+  def self.profiler
+    Thread.current[:profile_tools_profiler] ||= Profiler.new
+  end
+
+  def self.instrument
+    profiler.instrument do
+      yield
     end
-    decrement_call_depth
-    result
-  end
-
-  def self.count_objects_changes(starting_objects, new_objects)
-    new_objects.each do |name, _|
-      new_objects[name] -= starting_objects[name]
-      new_objects[name] -= 1 if name == :T_HASH
-    end
-  end
-
-  def self.count_objects_around
-    starting_objects = ObjectSpace.count_objects
-    yield
-    ::ProfileTools.count_objects_changes(starting_objects, ObjectSpace.count_objects)
-  end
-
-  def self.increment_call_depth
-    Thread.current[:profile_tools_call_depth] ||= 0
-    Thread.current[:profile_tools_call_depth] += 1
-  end
-
-  def self.decrement_call_depth
-    Thread.current[:profile_tools_call_depth] -= 1
-  end
-
-  def self.collector
-    Thread.current[:profile_tools_collector] ||= Collector.new.tap do |collector|
-      profiled_methods.each { |display_name| collector.init_method(display_name) }
-    end
-  end
-
-  def self.reset_collector
-    Thread.current[:profile_tools_collector] = nil
   end
 
   private
@@ -110,7 +72,7 @@ class ProfileTools
     kls.class_eval(
 <<-STR, __FILE__, __LINE__ + 1
 def #{method_name_with_profiling}(*args)
-  ::ProfileTools.instrument('#{display_name}') do
+  ::ProfileTools.profiler.instrument('#{display_name}') do
     #{method_name_without_profiling}(*args)
   end
 end
@@ -130,9 +92,5 @@ STR
     method_name = method_name.sub(punctuation, '') if punctuation
 
     "#{method_name}_#{suffix}#{punctuation}"
-  end
-
-  def now
-    Concurrent.monotonic_time
   end
 end
