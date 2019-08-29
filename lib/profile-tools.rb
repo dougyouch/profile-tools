@@ -60,22 +60,6 @@ class ProfileTools
     ::ProfileTools.count_objects_changes(starting_objects, ObjectSpace.count_objects)
   end
 
-  def self.instrument
-    ::ProfileTools.reset_collector if ::ProfileTools.increment_call_depth == 1
-    collector = ::ProfileTools.collector
-    collector.init_method("#{name}.instrument")
-    current_collection_calls = collector.total_collection_calls
-    ActiveSupport::Notifications.instrument('method.profile_tools', class_name: name, method: 'instrument', display_name: "#{name}.instrument", collector: collector) do |payload|
-      result = nil
-      payload[:count_objects] = ::ProfileTools.count_objects_around do
-        result = yield
-      end
-      payload[:call_depth] = ::ProfileTools.decrement_call_depth
-      payload[:num_collection_calls] = collector.total_collection_calls - current_collection_calls
-      result
-    end
-  end
-
   def self.increment_call_depth
     Thread.current[:profile_tools_call_depth] ||= 0
     Thread.current[:profile_tools_call_depth] += 1
@@ -106,18 +90,22 @@ class ProfileTools
     kls.class_eval(
 <<-STR, __FILE__, __LINE__ + 1
 def #{method_name_with_profiling}(*args)
-  ::ProfileTools.reset_collector if ::ProfileTools.increment_call_depth == 1
-  collector = ::ProfileTools.collector
-  current_collection_calls = collector.total_collection_calls
-  ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}', display_name: '#{display_name}', collector: collector) do |payload|
-    result = nil
-    payload[:count_objects] = ::ProfileTools.count_objects_around do
+  result = nil
+  if ::ProfileTools.increment_call_depth == 1
+    ::ProfileTools.reset_collector 
+    collector = ::ProfileTools.collector
+    ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}', display_name: '#{display_name}', collector: collector) do |payload|
+      collector.instrument('#{display_name}') do
+        result = #{method_name_without_profiling}(*args)
+      end
+    end
+  else
+    ::ProfileTools.collector.instrument('#{display_name}') do
       result = #{method_name_without_profiling}(*args)
     end
-    payload[:call_depth] = ::ProfileTools.decrement_call_depth
-    payload[:num_collection_calls] = collector.total_collection_calls - current_collection_calls
-    result
   end
+  ::ProfileTools.decrement_call_depth
+  result
 end
 STR
     )
@@ -137,5 +125,9 @@ STR
     method_name = method_name.sub(punctuation, '') if punctuation
 
     "#{method_name}_#{suffix}#{punctuation}"
+  end
+
+  def now
+    Concurrent.monotonic_time
   end
 end

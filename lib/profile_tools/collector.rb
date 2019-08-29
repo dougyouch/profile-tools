@@ -38,6 +38,23 @@ class ProfileTools
         .sort { |a, b| b[:sort_order] <=> a[:sort_order] }
     end
 
+    def instrument(method)
+      current_collection_calls = @total_collection_calls
+      started_at = now
+      result = nil
+      count_objects = ::ProfileTools.count_objects_around do
+        result = yield
+      end
+      finished_at = now
+      add(
+        method,
+        (finished_at - started_at) * 1000.0,
+        count_objects,
+        @total_collection_calls - current_collection_calls
+      )
+      result
+    end
+
     private
 
     def add_object_changes(current_objects, new_objects)
@@ -47,12 +64,14 @@ class ProfileTools
       current_objects
     end
 
-    # :T_OBJECT=>1, :T_STRING=>6, :T_ARRAY=>3, :T_HASH=>6
     def adjust_count_objects(count_objects, num_collection_calls)
-      count_objects[:T_OBJECT] -= (1 * num_collection_calls)
-      count_objects[:T_STRING] -= (6 * num_collection_calls)
-      count_objects[:T_ARRAY] -= (3 * num_collection_calls)
-      count_objects[:T_HASH] -= (5 * num_collection_calls)
+      count_objects[:T_STRING] -= (1 * num_collection_calls)
+      count_objects[:T_ARRAY] -= (1 * num_collection_calls)
+      count_objects[:T_HASH] -= (2 * num_collection_calls)
+    end
+
+    def now
+      Concurrent.monotonic_time
     end
   end
 end
