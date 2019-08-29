@@ -4,6 +4,8 @@ class ProfileTools
   autoload :Collector, 'profile_tools/collector'
   autoload :LogSubscriber, 'profile_tools/log_subscriber'
 
+  EVENT = 'profile.profile_tools'
+  
   @@profiled_methods = []
   def self.profiled_methods
     @@profiled_methods
@@ -18,11 +20,11 @@ class ProfileTools
   end
 
   def profile_instance_method(class_name, method_name)
-    profile_method(Object.const_get(class_name), class_name, method_name, "#{class_name}##{method_name}")
+    profile_method(Object.const_get(class_name), method_name, "#{class_name}##{method_name}")
   end
 
   def profile_class_method(class_name, method_name)
-    profile_method(Object.const_get(class_name).singleton_class, class_name, method_name, "#{class_name}.#{method_name}")
+    profile_method(Object.const_get(class_name).singleton_class, method_name, "#{class_name}.#{method_name}")
   end
 
   def self.load(yaml_file)
@@ -80,7 +82,7 @@ class ProfileTools
 
   private
 
-  def profile_method(kls, class_name, method_name, display_name)
+  def profile_method(kls, method_name, display_name)
     self.class.add_method(display_name)
 
     method_name_without_profiling = generate_method_name(method_name.to_s, 'without_profiling')
@@ -93,7 +95,7 @@ def #{method_name_with_profiling}(*args)
   if ::ProfileTools.increment_call_depth == 1
     ::ProfileTools.reset_collector 
     collector = ::ProfileTools.collector
-    ActiveSupport::Notifications.instrument('method.profile_tools', class_name: '#{class_name}', method: '#{method_name}', display_name: '#{display_name}', collector: collector) do |payload|
+    ActiveSupport::Notifications.instrument(::ProfileTools::EVENT, collector: collector) do |payload|
       collector.instrument('#{display_name}') do
         result = #{method_name_without_profiling}(*args)
       end

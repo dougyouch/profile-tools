@@ -2,7 +2,7 @@
 
 class ProfileTools
   class LogSubscriber < ActiveSupport::LogSubscriber
-    def method(event)
+    def profile(event)
       event.payload[:collector].called_methods.each do |info|
         logger.info "method #{info[:method]} took #{info[:duration].round(5)}ms, called #{info[:calls]}, num_collection_calls: #{info[:num_collection_calls]}, objects: #{display_count_objects(info[:count_objects])}"
       end
