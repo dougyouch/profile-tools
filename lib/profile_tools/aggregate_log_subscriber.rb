@@ -15,17 +15,17 @@ class ProfileTools
         ::ProfileTools.reset_collector
         event.payload[:collector].methods.each do |display_name, info|
           next unless info[:calls] > 0
-          logger.info "method #{display_name} took #{info[:duration].round(5)}ms, called #{info[:calls]}, num_collection_calls: #{info[:num_collection_calls]}, objects: #{display_object_counts(info[:count_objects])}"
+          logger.info "method #{display_name} took #{info[:duration].round(5)}ms, called #{info[:calls]}, num_collection_calls: #{info[:num_collection_calls]}, objects: #{display_count_objects(info[:count_objects])}"
         end
       end
     end
 
     private
 
-    def display_object_counts(object_counts)
-      object_counts.reject! { |_, cnt| cnt == 0 }
-      object_counts.delete(:FREE)
-      object_counts.to_a.map { |k, v| "#{k}: #{v}" }.join(', ')
+    def display_count_objects(count_objects)
+      count_objects.reject! { |_, cnt| cnt == 0 }
+      count_objects.delete(:FREE)
+      count_objects.to_a.map { |k, v| "#{k}: #{v}" }.join(', ')
     end
   end
 end

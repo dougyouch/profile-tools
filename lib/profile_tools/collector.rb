@@ -26,7 +26,7 @@ class ProfileTools
       @methods[method][:duration] += duration
       @methods[method][:num_collection_calls] = num_collection_calls
       add_object_changes(@methods[method][:count_objects], count_object_changes)
-      adjust_object_counts(@methods[method][:count_objects], num_collection_calls) if num_collection_calls > 0
+      adjust_count_objects(@methods[method][:count_objects], num_collection_calls) if num_collection_calls > 0
     end
 
     private
@@ -39,11 +39,11 @@ class ProfileTools
     end
 
     # :T_OBJECT=>1, :T_STRING=>6, :T_ARRAY=>3, :T_HASH=>6
-    def adjust_object_counts(object_counts, num_collection_calls)
-      object_counts[:T_OBJECT] -= (1 * num_collection_calls)
-      object_counts[:T_STRING] -= (6 * num_collection_calls)
-      object_counts[:T_ARRAY] -= (3 * num_collection_calls)
-      object_counts[:T_HASH] -= (5 * num_collection_calls)
+    def adjust_count_objects(count_objects, num_collection_calls)
+      count_objects[:T_OBJECT] -= (1 * num_collection_calls)
+      count_objects[:T_STRING] -= (6 * num_collection_calls)
+      count_objects[:T_ARRAY] -= (3 * num_collection_calls)
+      count_objects[:T_HASH] -= (5 * num_collection_calls)
     end
   end
 end
