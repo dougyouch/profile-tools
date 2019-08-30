@@ -26,6 +26,6 @@ require 'logger'
 PROFILE_IO = StringIO.new
 ActiveSupport::LogSubscriber.logger = Logger.new(PROFILE_IO)
 
-NEW_OBJECT_PROC = Proc.new do
-  Object.new
+NEW_OBJECT_PROC = Proc.new do |num = 1|
+  num.times { Object.new }
 end
