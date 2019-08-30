@@ -47,4 +47,13 @@ describe ProfileTools::Collector do
       end
     end
   end
+
+  context '#called_methods' do
+    let(:code_block) { NESTED_INSTRUMENT_OBJECT_PROC }
+    subject { collector.called_methods }
+
+    it 'returns methods called in top down order' do
+      expect(subject.map { |info| info[:method] }).to eq(['block', 'level1', 'level2', 'level3', 'level4', 'level5'])
+    end
+  end
 end

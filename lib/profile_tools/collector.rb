@@ -11,6 +11,7 @@ class ProfileTools
     def initialize
       @methods = {}
       @total_collection_calls = 0
+      @sort_order = 0
     end
 
     def init_method(method)
@@ -28,13 +29,14 @@ class ProfileTools
       @methods
         .values
         .reject { |info| info[:calls].zero? }
-        .sort { |a, b| b[:sort_order] <=> a[:sort_order] }
+        .sort { |a, b| a[:sort_order] <=> b[:sort_order] }
     end
 
     def instrument(method)
       current_collection_calls = @total_collection_calls
       result = nil
       duration = nil
+      @methods[method][:sort_order] ||= (@sort_order += 1)
       count_objects = count_objects_around do
         started_at = now
         result = yield
@@ -54,7 +56,6 @@ class ProfileTools
     def add(method, duration, count_object_changes, num_collection_calls)
       @total_collection_calls += 1
       @methods[method][:calls] += 1
-      @methods[method][:sort_order] ||= @total_collection_calls
       @methods[method][:duration] += duration
       @methods[method][:num_collection_calls] = num_collection_calls
       add_object_changes(@methods[method][:count_objects], count_object_changes)
