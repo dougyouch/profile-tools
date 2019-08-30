@@ -1,5 +1,5 @@
 class SimpleModel
-  def self.level1
+  def self.level1!
     new.level1
   end
 
