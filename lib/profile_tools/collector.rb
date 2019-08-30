@@ -48,6 +48,14 @@ class ProfileTools
       result
     end
 
+    def total_objects_created
+      totals = Hash.new(0)
+      called_methods.each do |info|
+        info[:count_objects].each { |k, v| totals[k] += v }
+      end
+      totals
+    end
+
     private
 
     def add(method, duration, count_object_changes, num_collection_calls)

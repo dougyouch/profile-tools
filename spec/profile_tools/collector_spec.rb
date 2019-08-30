@@ -18,6 +18,8 @@ describe ProfileTools::Collector do
       it 'change object count' do
         subject
         expect(count_objects[:T_OBJECT]).to eq(1)
+        puts collector.total_objects_created.inspect
+        expect(collector.total_objects_created.values.sum).to eq(1)
       end
     end
   end
