@@ -107,8 +107,8 @@ end
 STR
     )
 
-    kls.alias_method(method_name_without_profiling, method_name)
-    kls.alias_method(method_name, method_name_with_profiling)
+    kls.send(:alias_method, method_name_without_profiling, method_name)
+    kls.send(:alias_method, method_name, method_name_with_profiling)
   end
 
   def generate_method_name(method_name, suffix)
@@ -128,7 +128,7 @@ STR
     method_name_without_profiling = generate_method_name(method_name.to_s, 'without_profiling')
     method_name_with_profiling = generate_method_name(method_name.to_s, 'with_profiling')
 
-    kls.alias_method(method_name, method_name_without_profiling)
+    kls.send(:alias_method, method_name, method_name_without_profiling)
     kls.send(:remove_method, method_name_with_profiling)
     kls.send(:remove_method, method_name_without_profiling)
   end
