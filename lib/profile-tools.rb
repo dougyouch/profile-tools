@@ -18,6 +18,10 @@ class ProfileTools
     profiled_methods << display_name
   end
 
+  def self.delete_method(display_name)
+    profiled_methods.delete_if { |method| method == display_name }
+  end
+
   def initialize
     ObjectSpace.count_objects
   end
@@ -28,6 +32,14 @@ class ProfileTools
 
   def profile_class_method(class_name, method_name)
     profile_method(Object.const_get(class_name).singleton_class, method_name, "#{class_name}.#{method_name}")
+  end
+
+  def remove_profiled_instance_method(class_name, method_name)
+    remove_profiling(Object.const_get(class_name), method_name, "#{class_name}##{method_name}")
+  end
+
+  def remove_profiled_class_method(class_name, method_name)
+    remove_profiling(Object.const_get(class_name).singleton_class, method_name, "#{class_name}.#{method_name}")
   end
 
   def self.load(yaml_file)
@@ -49,6 +61,22 @@ class ProfileTools
     end
 
     profile_tools
+  end
+
+  def self.stop_profiling(methods)
+    profile_tools = new
+
+    methods.each do |method|
+      if method =~ /#/
+        profile_tools.remove_profiled_instance_method(*method.split('#', 2))
+      elsif method =~ /\./
+        profile_tools.remove_profiled_class_method(*method.split('.', 2))
+      end
+    end
+  end
+
+  def self.stop_profiling!
+    stop_profiling(profiled_methods.dup)
   end
 
   def self.profiler
@@ -92,5 +120,16 @@ STR
     method_name = method_name.sub(punctuation, '') if punctuation
 
     "#{method_name}_#{suffix}#{punctuation}"
+  end
+
+  def remove_profiling(kls, method_name, display_name)
+    self.class.delete_method(display_name)
+
+    method_name_without_profiling = generate_method_name(method_name.to_s, 'without_profiling')
+    method_name_with_profiling = generate_method_name(method_name.to_s, 'with_profiling')
+
+    kls.alias_method(method_name, method_name_without_profiling)
+    kls.send(:remove_method, method_name_with_profiling)
+    kls.send(:remove_method, method_name_without_profiling)
   end
 end

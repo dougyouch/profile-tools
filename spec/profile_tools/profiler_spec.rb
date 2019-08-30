@@ -13,5 +13,17 @@ describe ProfileTools::Profiler do
       subject
       expect(profiler.collector.methods['block'][:count_objects][:T_OBJECT]).to eq(1)
     end
+
+    describe 'instrument level1' do
+      before(:each) do
+        ProfileTools.new.profile_instance_method(:SimpleModel, :level1)
+      end
+
+      it 'counts objects created' do
+        subject
+        expect(profiler.collector.methods['block'][:count_objects][:T_OBJECT]).to eq(1)
+        expect(profiler.collector.methods['SimpleModel#level1'][:count_objects][:T_OBJECT]).to eq(1)
+      end
+    end
   end
 end
