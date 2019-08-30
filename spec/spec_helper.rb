@@ -45,6 +45,9 @@ NESTED_INSTRUMENT_OBJECT_PROC = Proc.new do |collector, num = 1|
 
   collector.instrument('level3') do
     collector.instrument('level4') do
+      collector.instrument('level2') do
+        NEW_OBJECT_PROC.call(collector)
+      end
       collector.instrument('level5') do
         NEW_OBJECT_PROC.call(collector, 6)
       end

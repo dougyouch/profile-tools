@@ -43,7 +43,12 @@ describe ProfileTools::Collector do
       let(:code_block) { NESTED_INSTRUMENT_OBJECT_PROC }
 
       it 'change object count' do
-        expect(count_objects[:T_OBJECT]).to eq(18)
+        expect(count_objects[:T_OBJECT]).to eq(19)
+        expect(collector.methods['level1'][:count_objects][:T_OBJECT]).to eq(10)
+        expect(collector.methods['level2'][:count_objects][:T_OBJECT]).to eq(6)
+        expect(collector.methods['level3'][:count_objects][:T_OBJECT]).to eq(8)
+        expect(collector.methods['level4'][:count_objects][:T_OBJECT]).to eq(8)
+        expect(collector.methods['level5'][:count_objects][:T_OBJECT]).to eq(6)
       end
     end
   end
