@@ -10,4 +10,5 @@ AllCops:
   Exclude:
     - 'spec/spec_helper.rb'
     - 'spec/**/*_spec.rb'
+    - 'spec/support/*.rb'
     - 'script/test'
