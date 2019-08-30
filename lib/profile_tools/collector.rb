@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'concurrent'
 
 class ProfileTools
@@ -48,12 +49,26 @@ class ProfileTools
       result
     end
 
-    def total_objects_created
+    def total_object_counts
       totals = Hash.new(0)
       called_methods.each do |info|
-        info[:count_objects].each { |k, v| totals[k] += v }
+        info[:count_objects].each do |k, v|
+          totals[k] += v
+        end
       end
       totals
+    end
+
+    def total_objects_created
+      total_object_counts.inject(0) do |cnt, (k, v)|
+        case k
+        when :FREE,
+             :TOTAL
+          cnt
+        else
+          cnt + v
+        end
+      end
     end
 
     private
