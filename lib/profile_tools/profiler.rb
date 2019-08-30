@@ -3,6 +3,8 @@
 class ProfileTools
   # Aggregates profile stats into the collector
   class Profiler
+    attr_reader :collector
+
     def initialize
       @call_depth = 0
     end

@@ -22,6 +22,7 @@ require 'profile-tools'
 require 'active_support/notifications'
 require 'active_support/log_subscriber'
 require 'logger'
+require 'support/simple_model'
 
 PROFILE_IO = StringIO.new
 ActiveSupport::LogSubscriber.logger = Logger.new(PROFILE_IO)
