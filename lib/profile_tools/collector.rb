@@ -59,18 +59,6 @@ class ProfileTools
       totals
     end
 
-    def total_objects_created
-      total_object_counts.inject(0) do |cnt, (k, v)|
-        case k
-        when :FREE,
-             :TOTAL
-          cnt
-        else
-          cnt + v
-        end
-      end
-    end
-
     private
 
     def add(method, duration, count_object_changes, num_collection_calls)

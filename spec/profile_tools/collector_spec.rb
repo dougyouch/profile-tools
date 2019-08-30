@@ -5,13 +5,14 @@ describe ProfileTools::Collector do
     Proc.new do
       ProfileTools::Collector.new.tap do |c|
         c.init_method(method_name)
+        10.times { |i| c.init_method("level#{i + 1}") }
       end
     end
   end
   let(:execute_code_proc) do
     Proc.new do
       collector = collector_proc.call
-      collector.instrument(method_name) { code_block.call(code_block_iterations) }
+      collector.instrument(method_name) { code_block.call(collector, code_block_iterations) }
       collector
     end
   end
@@ -25,12 +26,8 @@ describe ProfileTools::Collector do
 
   context '#instrument' do
     describe 'single object' do
-      subject { collector }
-
       it 'change object count' do
-        subject
         expect(count_objects[:T_OBJECT]).to eq(code_block_iterations)
-        expect(collector.total_objects_created).to eq(code_block_iterations)
       end
     end
 
@@ -38,9 +35,15 @@ describe ProfileTools::Collector do
       let(:code_block_iterations) { 5 }
 
       it 'change object count' do
-        subject
         expect(count_objects[:T_OBJECT]).to eq(code_block_iterations)
-        expect(collector.total_objects_created).to eq(code_block_iterations)
+      end
+    end
+
+    describe 'nested instrumentation' do
+      let(:code_block) { NESTED_INSTRUMENT_OBJECT_PROC }
+
+      it 'change object count' do
+        expect(count_objects[:T_OBJECT]).to eq(18)
       end
     end
   end

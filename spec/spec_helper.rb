@@ -26,6 +26,29 @@ require 'logger'
 PROFILE_IO = StringIO.new
 ActiveSupport::LogSubscriber.logger = Logger.new(PROFILE_IO)
 
-NEW_OBJECT_PROC = Proc.new do |num = 1|
+NEW_OBJECT_PROC = Proc.new do |collector, num = 1|
   num.times { Object.new }
+end
+
+NESTED_INSTRUMENT_OBJECT_PROC = Proc.new do |collector, num = 1|
+  NEW_OBJECT_PROC.call(collector, num)
+
+  collector.instrument('level1') do
+    NEW_OBJECT_PROC.call(collector, 3)
+    5.times do
+      collector.instrument('level2') do
+        NEW_OBJECT_PROC.call(collector)
+      end
+    end
+    NEW_OBJECT_PROC.call(collector, 2)
+  end
+
+  collector.instrument('level3') do
+    collector.instrument('level4') do
+      collector.instrument('level5') do
+        NEW_OBJECT_PROC.call(collector, 6)
+      end
+      NEW_OBJECT_PROC.call(collector)
+    end
+  end
 end
