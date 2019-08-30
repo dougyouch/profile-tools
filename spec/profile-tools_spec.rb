@@ -77,4 +77,20 @@ describe ProfileTools do
       end
     end
   end
+
+  context '.instrument' do
+    let(:collector) { ProfileTools.profiler.collector }
+
+    before(:each) do
+      2.times do
+        ProfileTools.instrument do
+          SimpleModel.level1!
+        end
+      end
+    end
+
+    it 'profiles objects created' do
+      expect(collector.methods['ProfileTools::Profiler#instrument'][:count_objects][:T_OBJECT]).to eq(2)
+    end
+  end
 end
