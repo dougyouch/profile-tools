@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "cc13630899b3f745f2e1b33345f31f9b1982d0b8",
+  "bump-minor-pre-major": true,
+  "packages": {
+    ".": {
+      "release-type": "ruby",
+      "package-name": "profile-tools",
+      "version-file": "lib/profile_tools/version.rb",
+      "include-component-in-tag": false
+    }
+  }
+}
