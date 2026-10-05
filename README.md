@@ -59,28 +59,94 @@ Nothing else to set up. With the gem installed, profiling is off until a config 
 
 A typo in the file (a class or method that doesn't exist) raises at boot, so check the app starts before leaving it.
 
+Background jobs (Sidekiq, Active Job) don't go through the middleware; see [Background jobs](#background-jobs) to get one report per job.
+
 ## Usage without Rails
+
+Outside Rails, nothing happens automatically: you choose the methods, where reports go, and what counts as one run. It takes three steps.
 
 ```ruby
 require 'logger'
 require 'profile-tools'
 
+# 1. Send reports somewhere. Attach first: that loads ActiveSupport::LogSubscriber.
 ProfileTools::LogSubscriber.attach_to :profile_tools
 ActiveSupport::LogSubscriber.logger = Logger.new($stdout)
 
-ProfileTools.load('profile_tools.yml')            # or:
-ProfileTools.profile('Order' => %w[total .find])  # or:
-ProfileTools.profile_method('Order#total')
+# 2. Choose the methods, after the classes are loaded
+ProfileTools.load('profile_tools.yml')            # the same YAML format as in Rails, or:
+ProfileTools.profile('Order' => %w[total .find])  # a hash in that shape, or:
+ProfileTools.profile_method('Order#total')        # one method at a time
 
-# One report for everything inside the block
+# 3. Decide what one report covers
 ProfileTools.instrument('nightly import') { Importer.run }
 ```
 
-In a Rack app, `use ProfileTools::Middleware` gives one report per request. In a background job, wrap `perform` with `ProfileTools.instrument('MyJob')`.
+Without an enclosing `instrument` block (or the middleware below), each outermost call to a profiled method is reported on its own.
 
-Without an enclosing `instrument` block or middleware, each outermost call to a profiled method is reported on its own.
+### Rack apps (Sinatra, Roda, Hanami, plain Rack)
 
-To stop profiling:
+`ProfileTools::Middleware` makes each request one report, named `GET /path`. To keep the drop-in-file workflow, guard the setup in `config.ru` so it only runs when the file is there:
+
+```ruby
+# config.ru
+require_relative 'app'
+
+profile_config = ENV.fetch('PROFILE_TOOLS_CONFIG', 'config/profile_tools.yml')
+if File.exist?(profile_config)
+  require 'logger'
+  require 'profile-tools'
+  ProfileTools::LogSubscriber.attach_to :profile_tools
+  ActiveSupport::LogSubscriber.logger = Logger.new($stdout)
+  ProfileTools.load(profile_config)
+  use ProfileTools::Middleware
+end
+
+run App
+```
+
+### Background jobs
+
+Jobs don't pass through the Rack middleware, in Rails or anywhere else. Wrap each job in `instrument` to get one report per job. With Sidekiq:
+
+```ruby
+class ProfileToolsSidekiqMiddleware
+  include Sidekiq::ServerMiddleware
+
+  def call(_job_instance, job, _queue, &)
+    ProfileTools.instrument(job['class'], &)
+  end
+end
+
+Sidekiq.configure_server do |config|
+  config.server_middleware { |chain| chain.add ProfileToolsSidekiqMiddleware }
+end
+```
+
+### Scripts and the console
+
+```ruby
+ProfileTools.profile_method('Order#total')
+ProfileTools.instrument('check') { Order.find(42).total }
+ProfileTools.profiler.collector.called_methods.map(&:to_h)
+# => [{method: "check", calls: 1, duration: 0.51, allocations: 4874, gc_count: 0, gc_time: 0}, ...]
+```
+
+`script/console` in this repo starts IRB with logging to stdout already set up.
+
+### Sending the numbers somewhere else
+
+Every finished run publishes a `profile.profile_tools` ActiveSupport notification. Subscribe to it instead of (or as well as) attaching the log subscriber:
+
+```ruby
+ActiveSupport::Notifications.subscribe('profile.profile_tools') do |event|
+  event.payload[:collector].called_methods.each do |stats|
+    StatsD.distribution('profile_tools.allocations', stats.allocations, tags: ["method:#{stats.method}"])
+  end
+end
+```
+
+### Stopping
 
 ```ruby
 ProfileTools.stop_profiling('Order#total', 'Order.find')
