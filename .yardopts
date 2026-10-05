@@ -1,0 +1,10 @@
+--markup markdown
+--no-private
+--output-dir doc
+lib/**/*.rb
+-
+README.md
+UPGRADING.md
+ARCHITECTURE.md
+CHANGELOG.md
+LICENSE
