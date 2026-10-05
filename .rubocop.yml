@@ -1,14 +1,33 @@
-Naming/FileName:
-  Enabled: false
-Metrics/LineLength:
-  Max: 120
-Metrics/ModuleLength:
-  Max: 120
-Metrics/MethodLength:
-  Max: 20
 AllCops:
+  TargetRubyVersion: 3.4
+  NewCops: enable
+  SuggestExtensions: false
   Exclude:
-    - 'spec/spec_helper.rb'
-    - 'spec/**/*_spec.rb'
-    - 'spec/support/*.rb'
-    - 'script/test'
+    - 'vendor/**/*'
+    - 'coverage/**/*'
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+
+Metrics/MethodLength:
+  Max: 15
+
+# Style preferences
+Style/Documentation:
+  Enabled: false
+
+Style/FrozenStringLiteralComment:
+  EnforcedStyle: always
+
+Layout/LineLength:
+  Max: 130
+  Exclude:
+    - 'spec/**/*'
+
+# File naming - allow hyphenated gem name
+Naming/FileName:
+  Exclude:
+    - 'lib/profile-tools.rb'
+    - 'spec/profile-tools_spec.rb'

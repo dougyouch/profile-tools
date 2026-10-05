@@ -1,25 +1,16 @@
 # frozen_string_literal: true
 
-source 'http://rubygems.org'
+source 'https://rubygems.org'
 
-activesupport_version =
-  case ENV['RUBY_VERSION']
-  when /1\.9\.3/
-    3
-  when /2\.1\.9/
-    4
-  else
-    5
-  end
-
-gem 'activesupport', "~> #{activesupport_version}"
+gem 'activesupport'
 
 group :development do
-  gem 'rake'
   gem 'rubocop'
+  gem 'yard'
 end
 
 group :spec do
+  gem 'railties', require: false
   gem 'rspec'
   gem 'simplecov'
 end
