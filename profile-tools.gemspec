@@ -10,9 +10,9 @@ Gem::Specification.new do |s|
   s.description = 'Profile methods without touching their code. List them in config/profile_tools.yml, restart, and ' \
                   'every request logs how many times each was called, how long it took, exactly how many objects it ' \
                   'allocated and how many garbage collections ran inside it. Remove the file and restart to turn it ' \
-                  'off, so it can be switched on for a production box and off again. Rails apps need no setup beyond the Gemfile; ' \
-                  'other apps can load the file or profile methods by name. Built for finding the code that creates ' \
-                  'the most objects and causes the most garbage collection.'
+                  'off, so it can be switched on for a production box and off again. Rails apps need no setup ' \
+                  'beyond the Gemfile; other apps can load the file or profile methods by name. Built for finding ' \
+                  'the code that creates the most objects and causes the most garbage collection.'
   s.authors     = ['Doug Youch']
   s.email       = 'dougyouch@gmail.com'
   s.homepage    = 'https://github.com/dougyouch/profile-tools'
