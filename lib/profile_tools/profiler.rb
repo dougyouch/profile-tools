@@ -1,59 +1,52 @@
 # frozen_string_literal: true
 
-class ProfileTools
-  # Aggregates profile stats into the collector
+require 'active_support'
+require 'active_support/notifications'
+
+module ProfileTools
+  # Tracks the profiling run on the current thread (fiber-local, through Thread.current).
+  #
+  # The outermost {#instrument} call starts a run: it creates a {Collector} and publishes it in
+  # a "profile.profile_tools" ActiveSupport notification once the block finishes. Calls made
+  # during the run add to that collector.
   class Profiler
+    # Name used by {ProfileTools.instrument} when none is given
+    DEFAULT_NAME = 'ProfileTools.instrument'
+
+    # @return [Collector, nil] the collector of the current run, or of the last finished run
     attr_reader :collector
 
     def initialize
-      @call_depth = 0
+      @collector = nil
+      @running = false
     end
 
-    def instrument(class_and_method_name = 'ProfileTools::Profiler#instrument')
-      result = nil
-      if increment_call_depth == 1
-        @collector = new_collector
-        @collector.init_method(class_and_method_name)
-        instrument_with_notifications(class_and_method_name) do
-          result = yield
-        end
-      else
-        instrument_with_collector(class_and_method_name) do
-          result = yield
-        end
-      end
-      decrement_call_depth
-      result
+    # Measures the block as the named method. Starts a new run if none is in progress.
+    #
+    # @param name [String] display name to record the block under
+    # @yield the code to measure
+    # @return [Object] the block's result
+    def instrument(name = DEFAULT_NAME, &)
+      return @collector.instrument(name, &) if running?
+
+      run(name, &)
+    end
+
+    # @return [Boolean] true while a run is in progress
+    def running?
+      @running
     end
 
     private
 
-    def instrument_with_notifications(class_and_method_name)
-      ActiveSupport::Notifications.instrument(EVENT, collector: @collector) do
-        instrument_with_collector(class_and_method_name) do
-          yield
-        end
+    def run(name, &)
+      @running = true
+      @collector = Collector.new(ProfileTools.profiled_methods)
+      ActiveSupport::Notifications.instrument(EVENT, name: name, collector: @collector) do
+        @collector.instrument(name, &)
       end
-    end
-
-    def instrument_with_collector(class_and_method_name)
-      @collector.instrument(class_and_method_name) do
-        yield
-      end
-    end
-
-    def increment_call_depth
-      @call_depth += 1
-    end
-
-    def decrement_call_depth
-      @call_depth -= 1
-    end
-
-    def new_collector
-      ::ProfileTools::Collector.new.tap do |collector|
-        ::ProfileTools.profiled_methods.each { |display_name| collector.init_method(display_name) }
-      end
+    ensure
+      @running = false
     end
   end
 end

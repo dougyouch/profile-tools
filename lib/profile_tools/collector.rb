@@ -1,97 +1,72 @@
 # frozen_string_literal: true
 
-require 'concurrent'
-
-class ProfileTools
-  # Collects stats around method calls
+module ProfileTools
+  # Measures calls and adds them up per method for one profiling run (a request, a job, a block).
+  #
+  # Allocations are read from GC.stat(:total_allocated_objects), which only goes up, so the
+  # counts stay exact when garbage collection runs mid-call. The counter is process-wide:
+  # objects allocated by other threads at the same time are counted too.
+  #
+  # Nothing is allocated between the start and end readings, so a profiled method nested
+  # inside another doesn't add to the outer method's count.
   class Collector
-    attr_reader :methods,
-                :total_collection_calls
+    # @return [Hash{String => MethodStats}] stats for every method seen by this collector
+    attr_reader :stats
 
-    def initialize
-      @methods = {}
-      @total_collection_calls = 0
+    # Creates the stats for the given methods up front. A method seen for the first time
+    # inside another method's call allocates its {MethodStats}, which that outer call counts.
+    #
+    # @param method_names [Array<String>] display names of the profiled methods
+    def initialize(method_names = [])
+      @stats = {}
       @sort_order = 0
+      method_names.each { |method| stats_for(method) }
     end
 
-    def init_method(method)
-      @methods[method] = {
-        method: method,
-        duration: 0.0,
-        calls: 0,
-        count_objects: Hash.new(0),
-        num_collection_calls: 0,
-        sort_order: nil
-      }
-    end
-
-    def called_methods
-      @methods
-        .values
-        .reject { |info| info[:calls].zero? }
-        .sort { |a, b| a[:sort_order] <=> b[:sort_order] }
-    end
-
-    def instrument(method)
-      current_collection_calls = @total_collection_calls
-      result = nil
-      duration = nil
-      @methods[method][:sort_order] ||= (@sort_order += 1)
-      count_objects = count_objects_around do
-        started_at = now
-        result = yield
-        duration = now - started_at
+    # Runs the block and adds its time, allocations and garbage collection to the method's totals.
+    # A call made while the same method is already running is counted but not measured again.
+    #
+    # @param method [String] display name of the method
+    # @yield the code to measure
+    # @return [Object] the block's result
+    def instrument(method, &)
+      stats = stats_for(method)
+      recursive = stats.running?
+      stats.enter(@sort_order += 1)
+      begin
+        recursive ? yield : measure(stats, &)
+      ensure
+        stats.leave
       end
-      add(
-        method,
-        duration * 1000.0,
-        count_objects,
-        @total_collection_calls - current_collection_calls
-      )
-      result
+    end
+
+    # @return [Array<MethodStats>] the methods that were called, in the order they were first called
+    def called_methods
+      @stats.values.select(&:called?).sort_by(&:sort_order)
     end
 
     private
 
-    def add(method, duration, count_object_changes, num_collection_calls)
-      @total_collection_calls += 1
-      @methods[method][:calls] += 1
-      @methods[method][:duration] += duration
-      @methods[method][:num_collection_calls] = num_collection_calls
-      add_object_changes(@methods[method][:count_objects], count_object_changes)
-      adjust_count_objects(@methods[method][:count_objects], num_collection_calls)
+    def stats_for(method)
+      @stats[method] ||= MethodStats.new(method)
     end
 
-    def add_object_changes(current_objects, new_objects)
-      new_objects.each do |name, cnt|
-        current_objects[name] += cnt
-      end
-      current_objects
-    end
-
-    def adjust_count_objects(count_objects, num_collection_calls)
-      return if num_collection_calls.zero?
-
-      count_objects[:T_STRING] -= (1 * num_collection_calls)
-      count_objects[:T_ARRAY] -= (1 * num_collection_calls)
-      count_objects[:T_HASH] -= (2 * num_collection_calls)
+    def measure(stats)
+      started_at = now
+      allocations = allocated_objects
+      gc_count = GC.count
+      gc_time = GC.stat(:time)
+      yield
+    ensure
+      stats.add(now - started_at, allocated_objects - allocations, GC.count - gc_count, GC.stat(:time) - gc_time)
     end
 
     def now
-      Concurrent.monotonic_time
+      Process.clock_gettime(Process::CLOCK_MONOTONIC, :float_millisecond)
     end
 
-    def count_objects_changes(starting_objects, new_objects)
-      new_objects.each do |name, _|
-        new_objects[name] -= starting_objects[name]
-        new_objects[name] -= 1 if name == :T_HASH
-      end
-    end
-
-    def count_objects_around
-      starting_objects = ObjectSpace.count_objects
-      yield
-      count_objects_changes(starting_objects, ObjectSpace.count_objects)
+    def allocated_objects
+      GC.stat(:total_allocated_objects)
     end
   end
 end

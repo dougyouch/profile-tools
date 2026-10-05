@@ -1,48 +1,61 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe ProfileTools::Profiler do
-  let(:profiler) { ProfileTools.profiler }
-  let(:model) { SimpleModel.new }
+  let(:profiler) { described_class.new }
+  let(:events) { [] }
+  let!(:subscription) do
+    ActiveSupport::Notifications.subscribe(ProfileTools::EVENT) { |event| events << event }
+  end
 
-  context '#instrument' do
-    subject do
-      2.times { profiler.instrument('block') { model.level1 } }
+  after do
+    ActiveSupport::Notifications.unsubscribe(subscription)
+  end
+
+  describe '#instrument' do
+    it 'returns the block result' do
+      expect(profiler.instrument { :result }).to eq(:result)
     end
 
-    it 'counts objects created' do
-      subject
-      expect(profiler.collector.methods['block'][:count_objects][:T_OBJECT]).to eq(1)
+    it 'publishes one event per run with the collector' do
+      profiler.instrument('run') do
+        profiler.instrument('nested') { nil }
+      end
+
+      expect(events.size).to eq(1)
+      expect(events.first.payload[:name]).to eq('run')
+      expect(events.first.payload[:collector]).to eq(profiler.collector)
+      expect(profiler.collector.called_methods.map(&:method)).to eq(%w[run nested])
     end
 
-    describe 'instrument level1' do
-      before(:each) do
-        ProfileTools.new.profile_instance_method(:SimpleModel, :level1)
-        ProfileTools.new.profile_class_method(:SimpleModel, :level1!)
-      end
+    it 'uses the default name' do
+      profiler.instrument { nil }
 
-      after(:each) do
-        ProfileTools.stop_profiling!
-      end
+      expect(profiler.collector.called_methods.map(&:method)).to eq([described_class::DEFAULT_NAME])
+    end
 
-      it 'counts objects created' do
-        subject
-        expect(profiler.collector.methods['block'][:count_objects][:T_OBJECT]).to eq(1)
-        expect(profiler.collector.methods['SimpleModel#level1'][:count_objects][:T_OBJECT]).to eq(1)
-        expect(profiler.collector.methods['SimpleModel.level1!'][:count_objects][:T_OBJECT]).to eq(0)
-      end
+    it 'starts each run with a new collector holding the profiled methods' do
+      ProfileTools.profile_method('SimpleModel#level1')
+      profiler.instrument { nil }
+      first = profiler.collector
+      profiler.instrument { nil }
 
-      describe 'instrument class method' do
-        subject do
-          2.times { profiler.instrument('block') { SimpleModel.level1! } }
-        end
+      expect(profiler.collector).not_to equal(first)
+      expect(profiler.collector.stats.keys).to include('SimpleModel#level1')
+    end
 
-        it 'counts objects created' do
-          subject
-          expect(profiler.collector.methods['block'][:count_objects][:T_OBJECT]).to eq(2)
-          expect(profiler.collector.methods['SimpleModel#level1'][:count_objects][:T_OBJECT]).to eq(1)
-          expect(profiler.collector.methods['SimpleModel.level1!'][:count_objects][:T_OBJECT]).to eq(2)
-        end
-      end
+    it 'finishes the run when the block raises' do
+      expect { profiler.instrument { raise ArgumentError } }.to raise_error(ArgumentError)
+
+      expect(profiler).not_to be_running
+      profiler.instrument { nil }
+      expect(events.size).to eq(2)
+    end
+
+    it 'is running only inside a run' do
+      expect(profiler).not_to be_running
+      profiler.instrument { expect(profiler).to be_running }
     end
   end
 end

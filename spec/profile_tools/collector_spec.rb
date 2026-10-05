@@ -1,64 +1,96 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe ProfileTools::Collector do
-  let(:collector_proc) do
-    Proc.new do
-      ProfileTools::Collector.new.tap do |c|
-        c.init_method(method_name)
-        10.times { |i| c.init_method("level#{i + 1}") }
-      end
-    end
-  end
-  let(:execute_code_proc) do
-    Proc.new do
-      collector = collector_proc.call
-      collector.instrument(method_name) { code_block.call(collector, code_block_iterations) }
-      collector
-    end
-  end
-  let(:collector_warmup) { execute_code_proc.call }
-  let(:collector) { collector_warmup; execute_code_proc.call }
-  let(:method_name) { 'block' }
-  let(:code_block) { NEW_OBJECT_PROC }
-  let(:code_block_iterations) { 1 }
-  let(:method_stats) { collector.methods[method_name] }
-  let(:count_objects) { method_stats[:count_objects] }
+  let(:collector) { described_class.new(%w[outer inner]) }
 
-  context '#instrument' do
-    describe 'single object' do
-      it 'change object count' do
-        expect(count_objects[:T_OBJECT]).to eq(code_block_iterations)
-      end
-    end
-
-    describe 'multiple objects' do
-      let(:code_block_iterations) { 5 }
-
-      it 'change object count' do
-        expect(count_objects[:T_OBJECT]).to eq(code_block_iterations)
-      end
-    end
-
-    describe 'nested instrumentation' do
-      let(:code_block) { NESTED_INSTRUMENT_OBJECT_PROC }
-
-      it 'change object count' do
-        expect(count_objects[:T_OBJECT]).to eq(19)
-        expect(collector.methods['level1'][:count_objects][:T_OBJECT]).to eq(10)
-        expect(collector.methods['level2'][:count_objects][:T_OBJECT]).to eq(6)
-        expect(collector.methods['level3'][:count_objects][:T_OBJECT]).to eq(8)
-        expect(collector.methods['level4'][:count_objects][:T_OBJECT]).to eq(8)
-        expect(collector.methods['level5'][:count_objects][:T_OBJECT]).to eq(6)
-      end
+  # the first run fills method caches, which allocates; measure the second.
+  # The block gets the collector to nest calls in.
+  def measure
+    [described_class.new(%w[outer inner]), collector].each do |current|
+      current.instrument('outer') { yield current }
     end
   end
 
-  context '#called_methods' do
-    let(:code_block) { NESTED_INSTRUMENT_OBJECT_PROC }
-    subject { collector.called_methods }
+  describe '#initialize' do
+    it 'creates stats for the given methods' do
+      expect(collector.stats.keys).to eq(%w[outer inner])
+      expect(collector.called_methods).to eq([])
+    end
+  end
 
-    it 'returns methods called in top down order' do
-      expect(subject.map { |info| info[:method] }).to eq(['block', 'level1', 'level2', 'level3', 'level4', 'level5'])
+  describe '#instrument' do
+    it 'returns the block result' do
+      expect(collector.instrument('outer') { :result }).to eq(:result)
+    end
+
+    it 'counts objects allocated by the block exactly' do
+      measure { 5.times { Object.new } }
+
+      expect(collector.stats['outer'].allocations).to eq(5)
+    end
+
+    it 'includes nested calls in the outer total without adding overhead' do
+      measure do |current|
+        Object.new
+        current.instrument('inner') { 2.times { Object.new } }
+        current.instrument('inner') { Object.new }
+      end
+
+      expect(collector.stats['outer'].allocations).to eq(4)
+      expect(collector.stats['inner'].allocations).to eq(3)
+      expect(collector.stats['inner'].calls).to eq(2)
+    end
+
+    it 'stays exact when garbage collection runs mid-call' do
+      measure do
+        3.times { Object.new }
+        GC.start
+      end
+
+      expect(collector.stats['outer'].allocations).to eq(3)
+      expect(collector.stats['outer'].gc_count).to eq(1)
+      expect(collector.stats['outer'].gc_time).to be >= 0
+    end
+
+    it 'times the block in milliseconds' do
+      collector.instrument('outer') { sleep 0.01 }
+
+      expect(collector.stats['outer'].duration).to be_between(9.0, 1000.0)
+    end
+
+    it 'counts recursive calls but measures only the outermost one' do
+      measure do |current|
+        current.instrument('outer') { Object.new }
+      end
+
+      expect(collector.stats['outer'].calls).to eq(2)
+      expect(collector.stats['outer'].allocations).to eq(1)
+    end
+
+    it 'records calls that raise' do
+      expect { collector.instrument('outer') { raise ArgumentError } }.to raise_error(ArgumentError)
+
+      expect(collector.stats['outer'].calls).to eq(1)
+      expect(collector.stats['outer']).not_to be_running
+    end
+
+    it 'adds stats for methods it was not given' do
+      collector.instrument('other') { nil }
+
+      expect(collector.stats['other'].calls).to eq(1)
+    end
+  end
+
+  describe '#called_methods' do
+    it 'returns the called methods in the order they were first called' do
+      collector.instrument('other') do
+        collector.instrument('inner') { nil }
+        collector.instrument('other') { nil }
+      end
+
+      expect(collector.called_methods.map(&:method)).to eq(%w[other inner])
     end
   end
 end

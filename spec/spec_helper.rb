@@ -2,11 +2,19 @@
 
 require 'rubygems'
 require 'bundler'
-require 'securerandom'
-require 'simplecov'
 require 'stringio'
 
-SimpleCov.start
+require 'simplecov'
+
+SimpleCov.start do
+  enable_coverage :branch
+  # fail CI if any line or branch goes uncovered; skipped locally so single spec files can run
+  minimum_coverage line: 100, branch: 100 if ENV['CI']
+
+  cover 'lib/**/*.rb'
+  # loaded by the gemspec spec through Gem::Specification.load, which SimpleCov doesn't track
+  skip 'lib/profile_tools/version.rb'
+end
 
 begin
   Bundler.require(:default, :development, :spec)
@@ -16,43 +24,14 @@ rescue Bundler::BundlerError => e
   exit e.status_code
 end
 
-$LOAD_PATH.unshift(File.join(__FILE__, '../..', 'lib'))
-$LOAD_PATH.unshift(File.expand_path('..', __FILE__))
+$LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
+$LOAD_PATH.unshift(File.expand_path(__dir__))
 require 'profile-tools'
-require 'active_support/notifications'
-require 'active_support/log_subscriber'
 require 'logger'
 require 'support/simple_model'
 
-PROFILE_IO = StringIO.new
-ActiveSupport::LogSubscriber.logger = Logger.new(PROFILE_IO)
-
-NEW_OBJECT_PROC = Proc.new do |collector, num = 1|
-  num.times { Object.new }
-end
-
-NESTED_INSTRUMENT_OBJECT_PROC = Proc.new do |collector, num = 1|
-  NEW_OBJECT_PROC.call(collector, num)
-
-  collector.instrument('level1') do
-    NEW_OBJECT_PROC.call(collector, 3)
-    5.times do
-      collector.instrument('level2') do
-        NEW_OBJECT_PROC.call(collector)
-      end
-    end
-    NEW_OBJECT_PROC.call(collector, 2)
-  end
-
-  collector.instrument('level3') do
-    collector.instrument('level4') do
-      collector.instrument('level2') do
-        NEW_OBJECT_PROC.call(collector)
-      end
-      collector.instrument('level5') do
-        NEW_OBJECT_PROC.call(collector, 6)
-      end
-      NEW_OBJECT_PROC.call(collector)
-    end
+RSpec.configure do |config|
+  config.after do
+    ProfileTools.stop_profiling!
   end
 end
